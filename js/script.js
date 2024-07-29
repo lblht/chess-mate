@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (move === null) return 'snapback';
 
         updateStatus();
+        board.position(game.fen()); // Update the board position after the move
     }
 
     function onMouseoverSquare(square, piece) {
