@@ -1,136 +1,126 @@
+import { db, auth, doc, updateDoc, onSnapshot, signInAnonymously, onAuthStateChanged } from './firebase.js';
+
 document.addEventListener("DOMContentLoaded", function() {
     var board = null;
-    var game = new Chess();
-    var showMoves = true; // Variable to control the visualization of possible moves
-    var generateLegalMoves = true; // Variable to control the generation of legal/pseudo-legal moves
-
-    function onDragStart(source, piece, position, orientation) {
-        // do not pick up pieces if the game is over
-        // or if it's not that side's turn
-        if (game.in_checkmate() === true || game.in_draw() === true ||
-            (game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-            (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
-            return false;
-        }
-    }
-
-    function onDrop(source, target) {
-        // see if the move is legal
-        var move = game.move({
-            from: source,
-            to: target,
-            promotion: 'q', // NOTE: always promote to a queen for simplicity
-        });
-
-        // illegal move
-        if (move === null) return 'snapback';
-
-        updateStatus();
-        board.position(game.fen()); // Update the board position after the move
-    }
-
-    function onMouseoverSquare(square, piece) {
-        if (!showMoves) return;
-
-        // get list of possible moves for this square
-        var moves = game.moves({
-            square: square,
-            verbose: true,
-            //legal: generateLegalMoves // Use the generateLegalMoves variable
-        });
-
-        // exit if there are no moves available for this square
-        if (moves.length === 0) return;
-
-        // highlight the square they moused over
-        greySquare(square);
-
-        // highlight the possible squares for this piece
-        for (var i = 0; i < moves.length; i++) {
-            greySquare(moves[i].to);
-        }
-    }
-
-    function onMouseoutSquare(square, piece) {
-        if (!showMoves) return;
-        removeGreySquares();
-    }
-
-    function removeGreySquares() {
-        $('#board .square-55d63').css('background', '');
-    }
-
-    function greySquare(square) {
-        var squareEl = $('#board .square-' + square);
-
-        var background = '#a9a9a9';
-        if (squareEl.hasClass('black-3c85d') === true) {
-            background = '#696969';
-        }
-
-        squareEl.css('background', background);
-    }
-
-    function updateStatus() {
-        var status = '';
-
-        var moveColor = 'White';
-        if (game.turn() === 'b') {
-            moveColor = 'Black';
-        }
-
-        // checkmate?
-        if (game.in_checkmate() === true) {
-            status = 'Game over, ' + moveColor + ' is in checkmate.';
-        }
-
-        // draw?
-        else if (game.in_draw() === true) {
-            status = 'Game over, drawn position';
-        }
-
-        // game still on
-        else {
-            status = moveColor + ' to move';
-
-            // check?
-            if (game.in_check() === true) {
-                status += ', ' + moveColor + ' is in check';
-            }
-        }
-
-        $('#status').html(status);
-        $('#fen').html(game.fen());
-        $('#pgn').html(game.pgn());
-    }
-
+    var game = null;
+    var gameId = null;
+    var gameRef = null;
+    var playerColor = null;
     var config = {
         draggable: true,
         position: 'start',
         onDragStart: onDragStart,
         onDrop: onDrop,
-        onMouseoutSquare: onMouseoutSquare,
-        onMouseoverSquare: onMouseoverSquare,
         dropOffBoard: 'snapback',
-        sparePieces: false
+        sparePieces: false,
+        moveSpeed: 'slow',
+        snapbackSpeed: 300,
+        snapSpeed: 100,
+        pieceTheme: pieceTheme,
     };
-
     board = Chessboard('board', config);
+    
+    $(window).resize(board.resize)
+    $('#gameContent').hide();
+    $('#joinGame').on('click', joinGame);
+    $('#resetButton').on('click', resetGame);
 
-    // Add event listener to the move visualization toggle button
-    document.getElementById('toggle-move-visualization').addEventListener('click', function() {
-        showMoves = !showMoves;
-        if (!showMoves) {
-            removeGreySquares();
+    // Authenticate anonymously
+    signInAnonymously(auth).catch((error) => {
+        console.error("Error signing in anonymously: ", error);
+    });
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // User is signed in anonymously
+            console.log("Signed in as anonymous user:", user.uid);
+        } else {
+            // User is signed out
+            console.log("User signed out");
         }
     });
 
-    // Add event listener to the move generation toggle button
-    document.getElementById('toggle-move-generation').addEventListener('click', function() {
-        generateLegalMoves = !generateLegalMoves;
-        var status = generateLegalMoves ? 'Legal moves' : 'Pseudo-legal moves';
-        document.getElementById('move-generation-status').innerText = status;
-    });
+    function joinGame() {
+        gameId = $('#gameIdInput').val();
+        
+        if (gameId) {
+            gameRef = doc(db, 'games', gameId);
+            playerColor = $('#colorSelect').val();
+            game = new Chess();
+            
+            onSnapshot(gameRef, (docSnapshot) => {
+                const gameData = docSnapshot.data();
+                if (gameData) {
+                    game.load(gameData.fen);
+                    board.position(gameData.fen);
+                    updateStatus();
+                }
+            }, (error) => {console.error("Error getting document: ", error);});
+
+            $('#gameContent').show();
+            $('#introContent').hide();
+            $('#gameId').html(`Game: ${gameId}`);
+            
+            board.orientation(playerColor === 'w' ? 'white' : 'black');
+        } else {
+            alert('Please enter game ID.');
+        }
+    }
+
+    function pieceTheme(piece) {      
+        return 'img/chesspieces/wikipedia/' + piece + '.png'
+      }
+
+    function onDragStart(source, piece, position, orientation) {
+        if ((game.turn() === 'w' && playerColor === 'b' && piece.search(/^w/) !== -1) ||
+            (game.turn() === 'b' && playerColor === 'w' && piece.search(/^b/) !== -1)) {
+            return false;
+        }
+    }
+
+    function onDrop(source, target) {
+        var move = game.move({
+            from: source,
+            to: target,
+            promotion: 'q',
+        });
+
+        if (move === null) return 'snapback';
+
+        updateGame();
+    }
+
+    function updateStatus() {
+        var status = '';
+        var moveColor = game.turn() === 'b' ? 'Black' : 'White';
+
+        if (game.in_checkmate() === true) {
+            status = 'Game over, ' + moveColor + ' is in checkmate.';
+        } else if (game.in_draw() === true) {
+            status = 'Game over, drawn position';
+        } else {
+            status = moveColor + ' to move';
+            if (game.in_check() === true) {
+                status += ', ' + moveColor + ' is in check';
+            }
+        }
+
+        $('#status').html(`Status: ${status}`);
+    }
+
+    function updateGame() {
+        const fen = game.fen();
+        const turn = game.turn();
+
+        updateDoc(gameRef, {fen, turn}
+        ).then(() => {updateStatus();}
+        ).catch(error => {console.error("Error updating document: ", error);});
+    }
+
+    function resetGame() {
+        game.reset();
+        updateGame();
+    }
 
     updateStatus();
 });

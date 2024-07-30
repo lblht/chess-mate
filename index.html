@@ -5,18 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Mate</title>
     <link rel="stylesheet" href="css/chessboard-1.0.0.css">
+    <link rel="stylesheet" href="css/style.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="js/chessboard-1.0.0.js"></script>
     <script src="js/chess.js"></script>
+    <script type="module" src="js/script.js"></script>
 </head>
 <body>
-    <div id="board" style="width: 800px"></div>
-    <button id="toggle-move-visualization">Toggle Move Visualization</button>
-    <button id="toggle-move-generation">Toggle Move Generation</button>
-    <div id="move-generation-status">Legal moves</div>
-    <div id="status"></div>
-    <div id="fen"></div>
-    <div id="pgn"></div>
-    <script src="js/script.js"></script>
+    <div class="container">
+        <div id="gameContent">
+            <div id="board"></div>
+            <div id="gameId"></div>
+            <div id="status"></div>
+            <button id="resetButton">Reset Game</button>
+        </div>
+        <div id="introContent">
+            <input type="text" id="gameIdInput" placeholder="Enter game ID">
+            <div>
+                <label for="colorSelect">Choose your color:</label>
+                <select id="colorSelect">
+                    <option value="w">White</option>
+                    <option value="b">Black</option>
+                </select>
+            </div>
+            <button id="joinGame">Join Game</button>
+        </div>    
+    </div>
 </body>
 </html>
