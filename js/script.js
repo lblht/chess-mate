@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var game = null;
     var gameId = null;
     var gameRef = null;
-    var playerColor = null;
+    var lastMove = null;
     var config = {
         draggable: true,
         position: 'start',
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function() {
         moveSpeed: 'slow',
         snapbackSpeed: 300,
         snapSpeed: 100,
-        pieceTheme: pieceTheme,
+        pieceTheme: 'img/chesspieces/wikipedia/{piece}.png',
     };
     board = Chessboard('board', config);
     
@@ -25,19 +25,11 @@ document.addEventListener("DOMContentLoaded", function() {
     $('#joinGame').on('click', joinGame);
     $('#resetButton').on('click', resetGame);
 
-    // Authenticate anonymously
-    signInAnonymously(auth).catch((error) => {
-        console.error("Error signing in anonymously: ", error);
-    });
+    signInAnonymously(auth).catch((error) => { console.error("Error signing in anonymously: ", error); });
 
     onAuthStateChanged(auth, (user) => {
-        if (user) {
-            // User is signed in anonymously
-            console.log("Signed in as anonymous user:", user.uid);
-        } else {
-            // User is signed out
-            console.log("User signed out");
-        }
+        if (user) { console.log("Signed in as anonymous user:", user.uid); } 
+        else { console.log("User signed out"); }
     });
 
     function joinGame() {
@@ -45,14 +37,17 @@ document.addEventListener("DOMContentLoaded", function() {
         
         if (gameId) {
             gameRef = doc(db, 'games', gameId);
-            playerColor = $('#colorSelect').val();
             game = new Chess();
             
             onSnapshot(gameRef, (docSnapshot) => {
                 const gameData = docSnapshot.data();
                 if (gameData) {
+                    lastMove = findLastMove(game.fen(), gameData.fen);
+                    console.log(game.fen());
+                    console.log(gameData.fen);
                     game.load(gameData.fen);
                     board.position(gameData.fen);
+                    game.turn(gameData.turn);
                     updateStatus();
                 }
             }, (error) => {console.error("Error getting document: ", error);});
@@ -61,22 +56,18 @@ document.addEventListener("DOMContentLoaded", function() {
             $('#introContent').hide();
             $('#gameId').html(`Game: ${gameId}`);
             
-            board.orientation(playerColor === 'w' ? 'white' : 'black');
+            board.orientation($('#colorSelect').val());
         } else {
             alert('Please enter game ID.');
         }
     }
 
-    function pieceTheme(piece) {      
-        return 'img/chesspieces/wikipedia/' + piece + '.png'
-      }
-
-    function onDragStart(source, piece, position, orientation) {
-        if ((game.turn() === 'w' && playerColor === 'b' && piece.search(/^w/) !== -1) ||
-            (game.turn() === 'b' && playerColor === 'w' && piece.search(/^b/) !== -1)) {
-            return false;
+    function onDragStart (source, piece, position, orientation) {
+        if ((orientation === 'white' && piece.search(/^w/) === -1) ||
+            (orientation === 'black' && piece.search(/^b/) === -1)) {
+          return false
         }
-    }
+      }
 
     function onDrop(source, target) {
         var move = game.move({
@@ -100,12 +91,15 @@ document.addEventListener("DOMContentLoaded", function() {
             status = 'Game over, drawn position';
         } else {
             status = moveColor + ' to move';
-            if (game.in_check() === true) {
-                status += ', ' + moveColor + ' is in check';
-            }
         }
 
-        $('#status').html(`Status: ${status}`);
+        $('#status').html( `Status: ${status}`);
+
+        if(lastMove) {
+            $('#lastMove').html(`Last move: from: ${lastMove.from} to ${lastMove.to}`);
+        } else {
+            $('#lastMove').html(`Last move: opponent's last move not detected`);
+        }
     }
 
     function updateGame() {
@@ -118,9 +112,31 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function resetGame() {
-        game.reset();
-        updateGame();
+        if (window.confirm('Are you sure you want to reset the game?')) {
+            lastMove = null;
+            game.reset();
+            updateGame();
+        }
     }
 
+    function findLastMove(fen1, fen2) {
+        if(fen1 == fen2) return lastMove;
+
+        const initialChess = new Chess(fen1);
+        const finalChess = new Chess(fen2);
+      
+        const possibleMoves = initialChess.moves({ verbose: true });
+      
+        for (const move of possibleMoves) {
+          initialChess.move(move);
+          if (initialChess.fen() === fen2) {
+            return move;
+          }
+          initialChess.undo();
+        }
+      
+        return null;
+      }
+    
     updateStatus();
 });

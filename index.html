@@ -14,9 +14,11 @@
 <body>
     <div class="container">
         <div id="gameContent">
-            <div id="board"></div>
             <div id="gameId"></div>
             <div id="status"></div>
+            <div id="lastMove"></div>
+            <div id="board"></div>
+            <br>
             <button id="resetButton">Reset Game</button>
         </div>
         <div id="introContent">
@@ -24,8 +26,8 @@
             <div>
                 <label for="colorSelect">Choose your color:</label>
                 <select id="colorSelect">
-                    <option value="w">White</option>
-                    <option value="b">Black</option>
+                    <option value="white">White</option>
+                    <option value="black">Black</option>
                 </select>
             </div>
             <button id="joinGame">Join Game</button>
