@@ -38,13 +38,12 @@ document.addEventListener("DOMContentLoaded", function() {
         if (gameId) {
             gameRef = doc(db, 'games', gameId);
             game = new Chess();
+            game.turn("w");
             
             onSnapshot(gameRef, (docSnapshot) => {
                 const gameData = docSnapshot.data();
                 if (gameData) {
-                    lastMove = findLastMove(game.fen(), gameData.fen);
-                    console.log(game.fen());
-                    console.log(gameData.fen);
+                    lastMove = gameData.lastMove;
                     game.load(gameData.fen);
                     board.position(gameData.fen);
                     game.turn(gameData.turn);
@@ -83,7 +82,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function updateStatus() {
         var status = '';
-        var moveColor = game.turn() === 'b' ? 'Black' : 'White';
+        var moveColor = game.turn() === 'b' ? 'black' : 'white';
 
         if (game.in_checkmate() === true) {
             status = 'Game over, ' + moveColor + ' is in checkmate.';
@@ -93,20 +92,18 @@ document.addEventListener("DOMContentLoaded", function() {
             status = moveColor + ' to move';
         }
 
-        $('#status').html( `Status: ${status}`);
-
-        if(lastMove) {
-            $('#lastMove').html(`Last move: from: ${lastMove.from} to ${lastMove.to}`);
-        } else {
-            $('#lastMove').html(`Last move: opponent's last move not detected`);
-        }
+        if(checkKingCapture()) { $('#status').html( `Status: ${checkKingCapture()}`); }
+        else { $('#status').html( `Status: ${status}`); }
+        $('#lastMove').html(`Last move: ${lastMove}`);
     }
 
     function updateGame() {
+        const history = game.history();
         const fen = game.fen();
         const turn = game.turn();
+        const lastMove = history[history.length - 1] ? history[history.length - 1] : 'no moves made'
 
-        updateDoc(gameRef, {fen, turn}
+        updateDoc(gameRef, {fen, turn, lastMove}
         ).then(() => {updateStatus();}
         ).catch(error => {console.error("Error updating document: ", error);});
     }
@@ -119,24 +116,28 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    function findLastMove(fen1, fen2) {
-        if(fen1 == fen2) return lastMove;
+    function checkKingCapture() {
+        var boardState = game.board();
+        var whiteKingCaptured = true;
+        var blackKingCaptured = true;
 
-        const initialChess = new Chess(fen1);
-        const finalChess = new Chess(fen2);
-      
-        const possibleMoves = initialChess.moves({ verbose: true });
-      
-        for (const move of possibleMoves) {
-          initialChess.move(move);
-          if (initialChess.fen() === fen2) {
-            return move;
-          }
-          initialChess.undo();
+        for (var row of boardState) {
+            for (var square of row) {
+                if (square) {
+                    if (square.type === 'k' && square.color === 'w') {
+                        whiteKingCaptured = false;
+                    }
+                    if (square.type === 'k' && square.color === 'b') {
+                        blackKingCaptured = false;
+                    }
+                }
+            }
         }
-      
-        return null;
-      }
+
+        if(whiteKingCaptured) { return 'white king captured - BLACK WINS!'; }
+        else if(blackKingCaptured) { return 'black king captured - WHITE WINS!'; }
+        else { return null }
+    }
     
     updateStatus();
 });

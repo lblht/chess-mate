@@ -10,16 +10,21 @@
     <script src="js/chessboard-1.0.0.js"></script>
     <script src="js/chess.js"></script>
     <script type="module" src="js/script.js"></script>
+    <script src="js/prevent-swipe-refresh.js"></script>
 </head>
 <body>
     <div class="container">
         <div id="gameContent">
-            <div id="gameId"></div>
-            <div id="status"></div>
-            <div id="lastMove"></div>
+            <div id="gameBar">
+                <div id="infoBar">
+                    <div id="gameId"></div>
+                    <div id="status"></div>
+                    <div id="lastMove"></div>
+                </div>
+                <button id="resetButton">Reset Game</button>
+            </div>
             <div id="board"></div>
             <br>
-            <button id="resetButton">Reset Game</button>
         </div>
         <div id="introContent">
             <input type="text" id="gameIdInput" placeholder="Enter game ID">

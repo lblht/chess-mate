@@ -4,6 +4,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-family: Arial, sans-serif;
 }
 
 .container {
@@ -13,15 +14,55 @@ html, body {
     justify-content: center;
 }
 
-#gameContent, #introContent {
+#gameContent {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
+#gameBar {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+#infoBar {
+    display: flex;
+    flex-direction: column;
+    font-size: 1rem;
+    color: #333;
+}
+
+#introContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#resetButton {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: gray;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    height: 30px;
+}
+
 #board {
-    width: 80vw;
-    height: 80vw;
-    max-width: 80vh;
-    max-height: 80vh;
+    width: 95vw;
+    height: 95vw;
+    max-width: 95vh;
+    max-height: 95vh;
+}
+
+@media (min-width: 700px) {
+    #board {
+        width: 85vw;
+        height: 85vw;
+        max-width: 85vh;
+        max-height: 85vh;
+    }
 }
