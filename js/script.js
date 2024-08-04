@@ -16,14 +16,21 @@ document.addEventListener("DOMContentLoaded", function() {
         moveSpeed: 'slow',
         snapbackSpeed: 300,
         snapSpeed: 100,
-        pieceTheme: 'img/chesspieces/wikipedia/{piece}.png',
+        pieceTheme: 'img/chesspieces/custom/{piece}.png',
+        onChange: onChange,
     };
     board = Chessboard('board', config);
+    var capturedPieces = [];
+    var moveSound = new Audio('sounds/move.mp3');
+    var captureSound = new Audio('sounds/capture.mp3');
     
     $(window).resize(board.resize)
     $('#gameContent').hide();
+    $('#kingCapturedOverlay').hide();
     $('#joinGame').on('click', joinGame);
     $('#resetButton').on('click', resetGame);
+    $('#resetOverlayButton').on('click', resetGame);
+    $('#revertButton').on('click', revertTurn);
 
     signInAnonymously(auth).catch((error) => { console.error("Error signing in anonymously: ", error); });
 
@@ -47,6 +54,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     game.load(gameData.fen);
                     board.position(gameData.fen);
                     game.turn(gameData.turn);
+                    capturedPieces = gameData.capturedPieces;
                     updateStatus();
                 }
             }, (error) => {console.error("Error getting document: ", error);});
@@ -68,17 +76,41 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       }
 
-    function onDrop(source, target) {
+      function onDrop(source, target) {
         var move = game.move({
             from: source,
             to: target,
-            promotion: 'q',
+            promotion: 'q'
         });
-
+    
         if (move === null) return 'snapback';
 
+    
+        if (move.captured) {
+            var capturedPiece = {
+                type: move.captured,
+                color: game.turn()
+            };
+            capturedPieces.push(capturedPiece);
+        }
+    
         updateGame();
     }
+    
+    function updateCapturedPieces() {
+        $('#capturedWhite').empty();
+        $('#capturedBlack').empty();
+    
+        capturedPieces.forEach(piece => {
+            var pieceImage = `<img src="img/chesspieces/custom/${piece.color}${piece.type.toUpperCase()}.png" alt="${piece.color}${piece.type}">`;
+            if (piece.color === 'w') {
+                $('#capturedWhite').append(pieceImage);
+            } else {
+                $('#capturedBlack').append(pieceImage);
+            }
+        });
+    }
+    
 
     function updateStatus() {
         var status = '';
@@ -92,9 +124,16 @@ document.addEventListener("DOMContentLoaded", function() {
             status = moveColor + ' to move';
         }
 
-        if(checkKingCapture()) { $('#status').html( `Status: ${checkKingCapture()}`); }
-        else { $('#status').html( `Status: ${status}`); }
+        if(checkKingCapture()) { 
+            $('#status').html( `Status: ${checkKingCapture()}`); 
+        }
+        else { 
+            $('#status').html( `Status: ${status}`); 
+        }
+        
         $('#lastMove').html(`Last move: ${lastMove}`);
+
+        updateCapturedPieces();
     }
 
     function updateGame() {
@@ -103,24 +142,38 @@ document.addEventListener("DOMContentLoaded", function() {
         const turn = game.turn();
         const lastMove = history[history.length - 1] ? history[history.length - 1] : 'no moves made'
 
-        updateDoc(gameRef, {fen, turn, lastMove}
+        updateDoc(gameRef, {fen, turn, lastMove, capturedPieces}
         ).then(() => {updateStatus();}
         ).catch(error => {console.error("Error updating document: ", error);});
     }
 
     function resetGame() {
         if (window.confirm('Are you sure you want to reset the game?')) {
+            $('#kingCapturedOverlay').hide();
             lastMove = null;
+            capturedPieces = [];
             game.reset();
             updateGame();
         }
     }
 
+    function revertTurn() {
+        if (window.confirm('Are you sure you want to revert the last turn?')) {
+            // TODO
+            alert("Not working yet :(");
+        }
+    }
+
+    function showKingCapturedOverlay(message) {
+        $('#kingCapturedMessage').text(message);
+        $('#kingCapturedOverlay').show();
+    }
+    
     function checkKingCapture() {
         var boardState = game.board();
         var whiteKingCaptured = true;
         var blackKingCaptured = true;
-
+    
         for (var row of boardState) {
             for (var square of row) {
                 if (square) {
@@ -133,11 +186,39 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             }
         }
-
-        if(whiteKingCaptured) { return 'white king captured - BLACK WINS!'; }
-        else if(blackKingCaptured) { return 'black king captured - WHITE WINS!'; }
-        else { return null }
+    
+        if (whiteKingCaptured) {
+            showKingCapturedOverlay('Black wins!');
+            return 'white king captured';
+        } else if (blackKingCaptured) {
+            showKingCapturedOverlay('White wins!');
+            return 'black king captured';
+        } else {
+            return null;
+        }
     }
+    
+
+    function onChange(oldPosition, newPosition) {
+        var capturedPiece = null;
+        for (var square in oldPosition) {
+          if (oldPosition[square] !== newPosition[square]) {
+            if (newPosition[square]) {
+              capturedPiece = oldPosition[square];
+              console.log('Captured piece:', capturedPiece, 'from square:', square);
+              break;
+            }
+          }
+        }
+  
+        if (capturedPiece)  {
+            captureSound.play();
+        }
+        else {
+            moveSound.play();
+        }
+      }
+      
     
     updateStatus();
 });
